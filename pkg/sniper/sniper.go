@@ -2,7 +2,6 @@ package sniper
 
 import (
 	"context"
-	"log"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -20,10 +19,11 @@ import (
 type Sniper struct {
 	ctx         context.Context
 	cli         *client.Client
+	actions     chan *models.Token
 	collections map[string]*models.Token
 }
 
-func New(endpoint string) (*Sniper, error) {
+func New(endpoint string, actions chan *models.Token) (*Sniper, error) {
 	collections, err := utils.LoadCollections()
 	if err != nil {
 		return nil, err
@@ -32,6 +32,7 @@ func New(endpoint string) (*Sniper, error) {
 	return &Sniper{
 		ctx:         context.TODO(),
 		cli:         client.NewClient(endpoint),
+		actions:     actions,
 		collections: collections,
 	}, nil
 }
@@ -85,7 +86,7 @@ func (s *Sniper) GetTransaction(signature string) {
 
 	token := s.parseTransaction(transaction)
 	if token != nil {
-		log.Println(token)
+		s.actions <- token
 	}
 }
 
@@ -148,9 +149,9 @@ func getActionPrice(logs []string) float64 {
 
 func getActionType(preTokenOwner, postTokenOwner string) string {
 	if preTokenOwner == MEPublicKeyStr && postTokenOwner != MEPublicKeyStr {
-		return "sale"
-	} else if postTokenOwner == MEPublicKeyStr {
 		return "buy"
+	} else if postTokenOwner == MEPublicKeyStr {
+		return "list"
 	}
 
 	return ""

@@ -5,18 +5,44 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
+	"github.com/synthonier/me-sniper/pkg/models"
 	"github.com/synthonier/me-sniper/pkg/sniper"
+	"github.com/synthonier/me-sniper/pkg/telegrambot"
 )
 
 func main() {
 	err := godotenv.Load()
 	checkError(err)
 
-	s, err := sniper.New(os.Getenv("NODE_ENDPOINT"))
+	var actions = make(chan *models.Token, 5)
+
+	// create sniper instance
+	s, err := sniper.New(os.Getenv("NODE_ENDPOINT"), actions)
 	checkError(err)
+
+	go func() {
+		err = s.Start()
+		checkError(err)
+	}()
+
+	TELEGRAM_APIKEY := os.Getenv("TELEGRAM_APIKEY")
+	if TELEGRAM_APIKEY != "" {
+		// create and start telegram bot
+		tgbot, err := telegrambot.New(TELEGRAM_APIKEY, actions)
+		checkError(err)
+
+		err = tgbot.Start()
+		checkError(err)
+	} else {
+		// just logs
+		for action := range actions {
+			action := action
 	
-	err = s.Start()
-	checkError(err)
+			go func() {
+				log.Println(action)
+			}()
+		}
+	}
 }
 
 func checkError(err error) {
